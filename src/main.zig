@@ -1,22 +1,19 @@
 const std = @import("std");
 const math = std.math;
 
-const Element = @import("element.zig").Element;
-const Particle = @import("particle.zig").Particle;
-
-const coords_to_index = @import("grid.zig").coords_to_index;
-const init_grid = @import("grid.zig").init_grid;
-const insert_particles_in_radius = @import("grid.zig").insert_particles_in_radius;
-
+const sim = @import("simulation/simulation.zig");
 const c = @cImport({
     @cInclude("SDL2/SDL.h");
 });
+
 const overlaps = c.SDL_HasIntersection;
 
 const FPS = 60;
-const DELTA_TIME_SEC: f32 = 1.0 / @intToFloat(f32, FPS);
+const DELTA_TIME_SEC: f32 = 1.0 / @floatCast(f32, FPS);
+
 pub const WINDOW_WIDTH = 800;
 pub const WINDOW_HEIGHT = 600;
+
 const BACKGROUND_COLOR = 0xFF181818;
 
 const PART_COLOR = 0xFFFFFFFF;
@@ -40,55 +37,23 @@ fn set_color(renderer: *c.SDL_Renderer, color: u32) void {
     _ = c.SDL_SetRenderDrawColor(renderer, r, g, b, a);
 }
 
-fn update(grid: *[WINDOW_WIDTH * WINDOW_HEIGHT]Particle) void {
-    if (!pause) {
-        if (brush_held) {
-            var mx: i32 = 0;
-            var my: i32 = 0;
-            _ = c.SDL_GetMouseState(&mx, &my);
-            const x = @intCast(u32, mx);
-            const y = @intCast(u32, my);
+fn render(renderer: *c.SDL_Renderer, simulation: sim.Simulation) void {
+    var i: usize = 0;
 
-            insert_particles_in_radius(grid, x, y, Element.Sand, brush_radius);
-        }
+    while (i < simulation.particles.len) {
+        const particle = simulation.particles[i];
 
-        var i: usize = grid.len;
+        // std.debug.print("Particle: {d} {d}\n", .{particle.x, particle.y});
 
-        while (i > 0) {
-            i -= 1;
+        set_color(renderer, 0xFFFFFFFF);
+        _ = c.SDL_RenderFillRect(renderer, &make_rect(particle.x, particle.y, PART_SIZE, PART_SIZE));
 
-            if (grid[i].element == Element.Air) {
-                continue;
-            }
-
-            const below_i = i + WINDOW_WIDTH;
-            const y = i / WINDOW_WIDTH;
-
-            if (y < WINDOW_HEIGHT - 1 and grid[below_i].element == Element.Air) {
-                grid[below_i].element = grid[i].element;
-                grid[i].element = Element.Air;
-            }
-        }
-    }
-}
-
-fn render(renderer: *c.SDL_Renderer, grid: [WINDOW_WIDTH * WINDOW_HEIGHT]Particle) void {
-    set_color(renderer, PART_COLOR);
-
-    for (grid) |particle, index| {
-        if (particle.element == Element.Air) {
-            continue;
-        }
-
-        const x = @intToFloat(f32, index % WINDOW_WIDTH);
-        const y = @intToFloat(f32, index / WINDOW_WIDTH);
-
-        _ = c.SDL_RenderFillRect(renderer, &make_rect(x, y, PART_SIZE, PART_SIZE));
+        i += 1;
     }
 }
 
 pub fn main() !void {
-    var grid = init_grid();
+    var simulation = sim.Simulation.init();
 
     if (c.SDL_Init(c.SDL_INIT_VIDEO) < 0) {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
@@ -114,7 +79,7 @@ pub fn main() !void {
     while (!quit) {
         var event: c.SDL_Event = undefined;
         while (c.SDL_PollEvent(&event) != 0) {
-            switch (event.@"type") {
+            switch (event.type) {
                 c.SDL_QUIT => {
                     quit = true;
                 },
@@ -140,12 +105,12 @@ pub fn main() !void {
             }
         }
 
-        update(&grid);
+        simulation.update();
 
         set_color(renderer, BACKGROUND_COLOR);
         _ = c.SDL_RenderClear(renderer);
 
-        render(renderer, grid);
+        render(renderer, simulation);
 
         c.SDL_RenderPresent(renderer);
 
