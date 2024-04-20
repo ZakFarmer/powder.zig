@@ -12,7 +12,7 @@ It's heavily inspired by [The Powder Toy](https://powdertoy.co.uk/), an amazing 
 
 ## Goals
 The main aim of the project is to provide a lightweight falling sand engine that can be easily extended through a comprehensive modding API.
-In the short term, providing a basic Lua API is a high priority. The main reason for that is that it's relatively easy to implement and it's easy to learn.
+In the short term, providing a basic Lua API is a high priority. The main reason for that is that it's relatively simple to implement and it's easy to learn.
 Of course, The Powder Toy already has a Lua scripting engine so I'm not really doing anything new - if it ain't broke don't fix it!
 
 Once I have a playable, fun game, I intend to dive deeper into the simulation aspect than other falling sand games usually go.
