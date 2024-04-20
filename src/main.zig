@@ -1,9 +1,11 @@
 const std = @import("std");
 const math = std.math;
 
+const Element = @import("simulation/element.zig").Element;
 const sim = @import("simulation/simulation.zig");
 const c = @cImport({
     @cInclude("SDL2/SDL.h");
+    @cInclude("SDL2/SDL_ttf.h");
 });
 
 const overlaps = c.SDL_HasIntersection;
@@ -25,11 +27,11 @@ var brush_radius: u32 = 5;
 var quit = false;
 var pause = false;
 
-fn make_rect(x: f32, y: f32, w: f32, h: f32) c.SDL_Rect {
+fn makeRect(x: f32, y: f32, w: f32, h: f32) c.SDL_Rect {
     return c.SDL_Rect{ .x = @floatToInt(i32, x), .y = @floatToInt(i32, y), .w = @floatToInt(i32, w), .h = @floatToInt(i32, h) };
 }
 
-fn set_color(renderer: *c.SDL_Renderer, color: u32) void {
+fn setColor(renderer: *c.SDL_Renderer, color: u32) void {
     const r = @truncate(u8, (color >> (0 * 8)) & 0xFF);
     const g = @truncate(u8, (color >> (1 * 8)) & 0xFF);
     const b = @truncate(u8, (color >> (2 * 8)) & 0xFF);
@@ -38,43 +40,49 @@ fn set_color(renderer: *c.SDL_Renderer, color: u32) void {
 }
 
 fn render(renderer: *c.SDL_Renderer, simulation: sim.Simulation) void {
-    var i: usize = 0;
-
-    while (i < simulation.particles.len) {
-        const particle = simulation.particles[i];
-
-        // std.debug.print("Particle: {d} {d}\n", .{particle.x, particle.y});
-
-        set_color(renderer, 0xFFFFFFFF);
-        _ = c.SDL_RenderFillRect(renderer, &make_rect(particle.x, particle.y, PART_SIZE, PART_SIZE));
-
-        i += 1;
+    for (simulation.particles.items) |particle| {
+        setColor(renderer, 0xFFFFFFFF);
+        _ = c.SDL_RenderFillRect(renderer, &makeRect(particle.x, particle.y, PART_SIZE, PART_SIZE));
     }
 }
 
 pub fn main() !void {
-    var simulation = sim.Simulation.init();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var allocator = gpa.allocator();
+
+    defer _ = gpa.deinit();
+
+    var simulation = try sim.Simulation.init(allocator);
 
     if (c.SDL_Init(c.SDL_INIT_VIDEO) < 0) {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     }
 
-    defer c.SDL_Quit();
-
     const window = c.SDL_CreateWindow("powder.zig", 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0) orelse {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
-    defer c.SDL_DestroyWindow(window);
 
     const renderer = c.SDL_CreateRenderer(window, -1, c.SDL_RENDERER_ACCELERATED) orelse {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
-    defer c.SDL_DestroyRenderer(renderer);
 
-    // const keyboard = c.SDL_GetKeyboardState(null);
+    _ = c.TTF_Init();
+
+    // const _font = c.TTF_OpenFont("res/fonts/KodeMono-Regular.ttf", 24) orelse {
+    //     c.SDL_Log("Unable to initialise SDL TTF font: %s", c.SDL_GetError());
+    //     return error.SDLInitializationFailed;
+    // };
+
+    defer {
+        simulation.deinit();
+
+        c.SDL_DestroyRenderer(renderer);
+        c.SDL_DestroyWindow(window);
+        c.SDL_Quit();
+    }
 
     while (!quit) {
         var event: c.SDL_Event = undefined;
@@ -83,6 +91,7 @@ pub fn main() !void {
                 c.SDL_QUIT => {
                     quit = true;
                 },
+
                 c.SDL_MOUSEBUTTONDOWN => switch (event.button.button) {
                     c.SDL_BUTTON_LEFT => {
                         brush_held = true;
@@ -105,9 +114,40 @@ pub fn main() !void {
             }
         }
 
+        // Brush input
+        if (!pause and brush_held) {
+            var mx: i32 = 0;
+            var my: i32 = 0;
+            _ = c.SDL_GetMouseState(&mx, &my);
+
+            const x = @intCast(i32, mx);
+            const y = @intCast(i32, my);
+
+            var y_offset: i32 = @intCast(i32, brush_radius);
+
+            while (y_offset >= -@intCast(i32, brush_radius)) {
+                var x_offset: i32 = -@intCast(i32, brush_radius);
+
+                while (x_offset < @intCast(i32, brush_radius)) {
+                    if (x + x_offset < 0 or x + x_offset >= WINDOW_WIDTH or y + y_offset < 0 or y + y_offset >= WINDOW_HEIGHT) {
+                        continue;
+                    }
+
+                    if (x_offset * x_offset + y_offset * y_offset <= brush_radius * brush_radius) {
+                        try simulation.spawnParticle(Element.Sand, @intCast(i32, 1), @intToFloat(f32, x + x_offset), @intToFloat(f32, y + y_offset));
+                    }
+
+                    x_offset += 1;
+                }
+
+                y_offset -= 1;
+            }
+        }
+        // End brush input
+
         simulation.update();
 
-        set_color(renderer, BACKGROUND_COLOR);
+        setColor(renderer, BACKGROUND_COLOR);
         _ = c.SDL_RenderClear(renderer);
 
         render(renderer, simulation);
