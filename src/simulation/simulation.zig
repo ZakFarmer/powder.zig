@@ -2,6 +2,7 @@ const std = @import("std");
 const constants = @import("../constants.zig");
 const Element = @import("element.zig").Element;
 const Particle = @import("particle.zig").Particle;
+const Rect = @import("../physics/rect.zig").Rect;
 const Vec2 = @import("../physics/vec.zig").Vec2;
 
 pub const Simulation = struct {
@@ -9,7 +10,14 @@ pub const Simulation = struct {
     gravity: Vec2,
 
     pub fn spawnParticle(self: *Simulation, element: Element, lifetime: i32, x: f32, y: f32) !void {
-        const particle = makeParticle(element, lifetime, x, y);
+        const rect = Rect {
+            .left = x,
+            .top = y,
+            .width = 1.0,
+            .height = 1.0,
+        };
+
+        const particle = makeParticle(element, lifetime, rect);
 
         try self.particles.append(particle);
     }
@@ -35,11 +43,10 @@ pub const Simulation = struct {
     }
 };
 
-fn makeParticle(element: Element, lifetime: i32, x: f32, y: f32) Particle {
+fn makeParticle(element: Element, lifetime: i32, rect: Rect) Particle {
     return Particle{
         .element = element,
-        .x = x,
-        .y = y,
+        .rect = rect,
         .vx = 0,
         .vy = 0,
         .lifetime = lifetime,

@@ -25,7 +25,7 @@ var brush_held: bool = false;
 var brush_radius: u32 = 5;
 
 var quit = false;
-var pause = false;
+var pause = true;
 
 fn makeRect(x: f32, y: f32, w: f32, h: f32) c.SDL_Rect {
     return c.SDL_Rect{ .x = @floatToInt(i32, x), .y = @floatToInt(i32, y), .w = @floatToInt(i32, w), .h = @floatToInt(i32, h) };
@@ -41,8 +41,10 @@ fn setColor(renderer: *c.SDL_Renderer, color: u32) void {
 
 fn render(renderer: *c.SDL_Renderer, simulation: sim.Simulation) void {
     for (simulation.particles.items) |particle| {
+        const rect = particle.rect.toSDL();
+
         setColor(renderer, 0xFFFFFFFF);
-        _ = c.SDL_RenderFillRect(renderer, &makeRect(particle.x, particle.y, PART_SIZE, PART_SIZE));
+        _ = c.SDL_RenderFillRect(renderer, &rect);
     }
 }
 
@@ -115,7 +117,7 @@ pub fn main() !void {
         }
 
         // Brush input
-        if (!pause and brush_held) {
+        if (brush_held) {
             var mx: i32 = 0;
             var my: i32 = 0;
             _ = c.SDL_GetMouseState(&mx, &my);
@@ -145,7 +147,9 @@ pub fn main() !void {
         }
         // End brush input
 
-        simulation.update();
+        if (!pause) {
+            simulation.update();
+        }
 
         setColor(renderer, BACKGROUND_COLOR);
         _ = c.SDL_RenderClear(renderer);
