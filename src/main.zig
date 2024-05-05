@@ -2,6 +2,7 @@ const std = @import("std");
 const math = std.math;
 
 const Element = @import("simulation/element.zig").Element;
+const Particle = @import("simulation/particle.zig").Particle;
 const sim = @import("simulation/simulation.zig");
 const c = @cImport({
     @cInclude("SDL2/SDL.h");
@@ -73,7 +74,7 @@ pub fn main() !void {
 
     _ = c.TTF_Init();
 
-    // const _font = c.TTF_OpenFont("res/fonts/KodeMono-Regular.ttf", 24) orelse {
+    // const font = c.TTF_OpenFont("res/fonts/KodeMono-Regular.ttf", 24) orelse {
     //     c.SDL_Log("Unable to initialise SDL TTF font: %s", c.SDL_GetError());
     //     return error.SDLInitializationFailed;
     // };

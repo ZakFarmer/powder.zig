@@ -2,6 +2,7 @@ const Element = @import("element.zig").Element;
 const Rect = @import("../physics/rect.zig").Rect;
 const Vec2 = @import("../physics/vec.zig").Vec2;
 const constants = @import("../constants.zig");
+const std = @import("std");
 
 pub const Particle = struct {
     element: Element,
@@ -18,6 +19,21 @@ pub const Particle = struct {
     pub fn applyForce(self: *Particle, force: Vec2) void {
         self.vx += force.x;
         self.vy += force.y;
+    }
+
+    test "applyForce should add the force to the particle's velocity" {
+        var particle = Particle{
+            .element = Element{ .x = 0, .y = 0, .width = 0, .height = 0 },
+            .vx = 0,
+            .vy = 0,
+            .rect = Rect{ .left = 0, .top = 0, .width = 0, .height = 0 },
+            .lifetime = 0,
+        };
+
+        particle.applyForce(Vec2 { .x = 1, .y = 2 });
+
+        try std.testing.expect(particle.vx == 1);
+        try std.testing.expect(particle.vy == 2);
     }
 
     pub fn update(self: *Particle) void {
